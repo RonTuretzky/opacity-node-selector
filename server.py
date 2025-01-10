@@ -78,6 +78,9 @@ def get_operator() -> str | None:
 
 # Proxy request handler
 class ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
+    # Add class variable to track task number
+    task_counter = 0
+
     def __init__(self, *args, **kwargs):
         load_dotenv()
         if os.getenv('SERVER_PRIVATE_KEY') is None or os.getenv('MAX_OPERATOR_RETRY_ATTEMPTS') is None:
@@ -116,10 +119,10 @@ class ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_error(500, "No live operators available.")
             return
         
-        self._send_json_response(operator,commitment)
+        # Increment task counter before sending response
+        ProxyHTTPRequestHandler.task_counter += 1
+        self._send_json_response(operator, commitment, ProxyHTTPRequestHandler.task_counter)
 
-
-        
     def _find_live_operator(self) -> str | None:
         """Attempts to find a live operator within the maximum retry attempts."""
         attempts = 0
@@ -142,7 +145,7 @@ class ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
         
         return None
 
-    def _send_json_response(self, operator: str, commitment: Commitment) -> None:
+    def _send_json_response(self, operator: str, commitment: Commitment, task_index: int) -> None:
         """Sends the JSON response with operator URL, timestamp, and signature."""
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
@@ -152,7 +155,8 @@ class ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
         response_data = {
             "node_url": operator,
             "timestamp": timestamp,
-            "node_selector_signature": signature
+            "node_selector_signature": signature,
+            "task_index": task_index
         }
         self.wfile.write(json.dumps(response_data).encode('utf-8'))
 
